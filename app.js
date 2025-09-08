@@ -180,7 +180,16 @@ async function checkHealth() {
         const healthData = await health.json();
         
         document.getElementById('apiStatus').textContent = healthData.status || 'Online';
-        document.getElementById('dbStatus').textContent = healthData.database || 'H2 Memory';
+        
+        // Corrigir: healthData.database é um objeto, não string
+        let dbInfo = 'H2 Memory';
+        if (healthData.database && typeof healthData.database === 'object') {
+            dbInfo = healthData.database.product || healthData.database.driver || 'Database';
+        } else if (typeof healthData.database === 'string') {
+            dbInfo = healthData.database;
+        }
+        
+        document.getElementById('dbStatus').textContent = dbInfo;
         document.getElementById('envStatus').textContent = 'Ativo';
         
         // Aplicar cores baseadas no status
