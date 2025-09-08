@@ -6,6 +6,8 @@ let currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
 // Estado da aplicação
 let environments = [];
 let luminaires = [];
+let editingEnvironmentId = null;
+let editingLuminaireId = null;
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', function() {
@@ -329,6 +331,12 @@ function updateEnvironmentSelect() {
 async function handleCreateEnvironment(event) {
     event.preventDefault();
     
+    // Se estamos editando, delegar para a função de atualização
+    if (editingEnvironmentId !== null) {
+        await updateEnvironment(editingEnvironmentId);
+        return;
+    }
+    
     const formData = {
         name: document.getElementById('envName').value,
         description: document.getElementById('envDescription').value,
@@ -376,6 +384,12 @@ async function deleteEnvironment(id) {
 // Luminaire Operations
 async function handleCreateLuminaire(event) {
     event.preventDefault();
+    
+    // Se estamos editando, delegar para a função de atualização
+    if (editingLuminaireId !== null) {
+        await updateLuminaire(editingLuminaireId);
+        return;
+    }
     
     const formData = {
         name: document.getElementById('lumName').value,
@@ -467,6 +481,17 @@ function showCreateLuminaireModal() {
 
 function closeModal(modalId) {
     document.getElementById(modalId).style.display = 'none';
+    
+    // Resetar flags de edição e títulos dos modais
+    if (modalId === 'createEnvironmentModal') {
+        editingEnvironmentId = null;
+        document.querySelector('#createEnvironmentModal h3').textContent = 'Criar Ambiente';
+        document.getElementById('createEnvironmentForm').reset();
+    } else if (modalId === 'createLuminaireModal') {
+        editingLuminaireId = null;
+        document.querySelector('#createLuminaireModal h3').textContent = 'Criar Luminária';
+        document.getElementById('createLuminaireForm').reset();
+    }
 }
 
 // Utility Functions
@@ -573,20 +598,16 @@ function editEnvironment(id) {
         return;
     }
     
+    // Definir o ID de edição
+    editingEnvironmentId = id;
+    
     // Preencher o modal com dados existentes
     document.getElementById('envName').value = environment.name;
     document.getElementById('envDescription').value = environment.description || '';
     document.getElementById('envImageUrl').value = environment.imageUrl || '';
     
-    // Alterar o comportamento do formulário para atualização
-    const form = document.getElementById('createEnvironmentForm');
-    form.onsubmit = async function(e) {
-        e.preventDefault();
-        await updateEnvironment(id);
-    };
-    
     // Mudar título do modal
-    document.querySelector('#createEnvironmentModal .modal-title').textContent = 'Editar Ambiente';
+    document.querySelector('#createEnvironmentModal h3').textContent = 'Editar Ambiente';
     
     // Abrir modal
     document.getElementById('createEnvironmentModal').style.display = 'flex';
@@ -610,9 +631,9 @@ async function updateEnvironment(id) {
         await loadEnvironments();
         showNotification('Ambiente atualizado com sucesso!', 'success');
         
-        // Restaurar comportamento original do formulário
-        document.getElementById('createEnvironmentForm').onsubmit = handleCreateEnvironment;
-        document.querySelector('#createEnvironmentModal .modal-title').textContent = 'Criar Novo Ambiente';
+        // Resetar flag de edição e restaurar título do modal
+        editingEnvironmentId = null;
+        document.querySelector('#createEnvironmentModal h3').textContent = 'Criar Ambiente';
     } catch (error) {
         showNotification('Erro ao atualizar ambiente: ' + error.message, 'error');
     } finally {
@@ -628,6 +649,9 @@ function editLuminaire(id) {
         return;
     }
     
+    // Definir o ID de edição
+    editingLuminaireId = id;
+    
     // Preencher o modal com dados existentes
     document.getElementById('lumName').value = luminaire.name;
     document.getElementById('lumType').value = luminaire.type;
@@ -638,15 +662,8 @@ function editLuminaire(id) {
     document.getElementById('lumPositionX').value = luminaire.positionX || '';
     document.getElementById('lumPositionY').value = luminaire.positionY || '';
     
-    // Alterar o comportamento do formulário para atualização
-    const form = document.getElementById('createLuminaireForm');
-    form.onsubmit = async function(e) {
-        e.preventDefault();
-        await updateLuminaire(id);
-    };
-    
     // Mudar título do modal
-    document.querySelector('#createLuminaireModal .modal-title').textContent = 'Editar Luminária';
+    document.querySelector('#createLuminaireModal h3').textContent = 'Editar Luminária';
     
     // Abrir modal
     document.getElementById('createLuminaireModal').style.display = 'flex';
@@ -675,9 +692,9 @@ async function updateLuminaire(id) {
         await loadLuminaires();
         showNotification('Luminária atualizada com sucesso!', 'success');
         
-        // Restaurar comportamento original do formulário
-        document.getElementById('createLuminaireForm').onsubmit = handleCreateLuminaire;
-        document.querySelector('#createLuminaireModal .modal-title').textContent = 'Criar Nova Luminária';
+        // Resetar flag de edição e restaurar título do modal
+        editingLuminaireId = null;
+        document.querySelector('#createLuminaireModal h3').textContent = 'Criar Luminária';
     } catch (error) {
         showNotification('Erro ao atualizar luminária: ' + error.message, 'error');
     } finally {
