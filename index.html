@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scenario Automation - Frontend</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1><i class="fas fa-lightbulb"></i> Scenario Automation</h1>
+                <div class="auth-info" id="authInfo" style="display: none;">
+                    <span id="userInfo"></span>
+                    <button class="btn btn-logout" onclick="logout()">
+                        <i class="fas fa-sign-out-alt"></i> Sair
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Login Section -->
+        <div class="section" id="loginSection">
+            <div class="card">
+                <h2><i class="fas fa-lock"></i> Login</h2>
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="username">Usuário:</label>
+                        <input type="text" id="username" value="admin" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Senha:</label>
+                        <input type="password" id="password" value="admin123" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-sign-in-alt"></i> Entrar
+                    </button>
+                </form>
+                <div class="credentials-help">
+                    <h4>Credenciais de Teste:</h4>
+                    <p><strong>Admin:</strong> admin / admin123</p>
+                    <p><strong>User:</strong> user / user123</p>
+                    <p><strong>Demo:</strong> demo / demo123</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Application -->
+        <div class="main-app" id="mainApp" style="display: none;">
+            
+            <!-- API Status -->
+            <div class="section">
+                <div class="card">
+                    <h2><i class="fas fa-heartbeat"></i> Status da API</h2>
+                    <div class="status-grid">
+                        <div class="status-item">
+                            <span class="status-label">API Status:</span>
+                            <span class="status-value" id="apiStatus">Verificando...</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Database:</span>
+                            <span class="status-value" id="dbStatus">Verificando...</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Ambiente Logado:</span>
+                            <span class="status-value" id="envStatus">Ativo</span>
+                        </div>
+                    </div>
+                    <button class="btn btn-secondary" onclick="checkHealth()">
+                        <i class="fas fa-refresh"></i> Verificar Status
+                    </button>
+                </div>
+            </div>
+
+            <!-- Ambientes Section -->
+            <div class="section">
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-home"></i> Ambientes</h2>
+                        <button class="btn btn-primary" onclick="showCreateEnvironmentModal()">
+                            <i class="fas fa-plus"></i> Novo Ambiente
+                        </button>
+                    </div>
+                    <div class="environments-grid" id="environmentsGrid">
+                        <!-- Environments will be loaded here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Luminárias Section -->
+            <div class="section">
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-lightbulb"></i> Luminárias</h2>
+                        <button class="btn btn-primary" onclick="showCreateLuminaireModal()">
+                            <i class="fas fa-plus"></i> Nova Luminária
+                        </button>
+                    </div>
+                    <div class="luminaires-grid" id="luminairesGrid">
+                        <!-- Luminaires will be loaded here -->
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Modals -->
+    
+    <!-- Create Environment Modal -->
+    <div class="modal" id="createEnvironmentModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-home"></i> Criar Ambiente</h3>
+                <span class="close" onclick="closeModal('createEnvironmentModal')">&times;</span>
+            </div>
+            <form id="createEnvironmentForm">
+                <div class="form-group">
+                    <label for="envName">Nome:</label>
+                    <input type="text" id="envName" required>
+                </div>
+                <div class="form-group">
+                    <label for="envDescription">Descrição:</label>
+                    <textarea id="envDescription" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="envImageUrl">URL da Imagem:</label>
+                    <input type="url" id="envImageUrl">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('createEnvironmentModal')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Criar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Create Luminaire Modal -->
+    <div class="modal" id="createLuminaireModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-lightbulb"></i> Criar Luminária</h3>
+                <span class="close" onclick="closeModal('createLuminaireModal')">&times;</span>
+            </div>
+            <form id="createLuminaireForm">
+                <div class="form-group">
+                    <label for="lumName">Nome:</label>
+                    <input type="text" id="lumName" required>
+                </div>
+                <div class="form-group">
+                    <label for="lumType">Tipo:</label>
+                    <select id="lumType" required>
+                        <option value="LED">LED</option>
+                        <option value="Incandescente">Incandescente</option>
+                        <option value="Fluorescente">Fluorescente</option>
+                        <option value="Halógena">Halógena</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="lumBrightness">Brilho (0-100):</label>
+                    <input type="range" id="lumBrightness" min="0" max="100" value="80">
+                    <span id="brightnessValue">80</span>%
+                </div>
+                <div class="form-group">
+                    <label for="lumColor">Cor:</label>
+                    <input type="color" id="lumColor" value="#FFFFFF">
+                </div>
+                <div class="form-group">
+                    <label for="lumEnvironment">Ambiente:</label>
+                    <select id="lumEnvironment" required>
+                        <!-- Environments will be loaded here -->
+                    </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="lumPositionX">Posição X:</label>
+                        <input type="number" id="lumPositionX" step="0.1" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="lumPositionY">Posição Y:</label>
+                        <input type="number" id="lumPositionY" step="0.1" value="0">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="lumStatus" checked>
+                        <span class="checkmark"></span>
+                        Luminária ligada
+                    </label>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('createLuminaireModal')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Criar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Carregando...</p>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
