@@ -337,10 +337,25 @@ async function handleCreateEnvironment(event) {
         return;
     }
     
+    const name = document.getElementById('envName').value.trim();
+    const description = document.getElementById('envDescription').value.trim();
+    const imageUrl = document.getElementById('envImageUrl').value.trim();
+    
+    // Validações
+    if (!name) {
+        showNotification('Nome do ambiente é obrigatório', 'error');
+        return;
+    }
+    
+    if (name.length < 2) {
+        showNotification('Nome deve ter pelo menos 2 caracteres', 'error');
+        return;
+    }
+    
     const formData = {
-        name: document.getElementById('envName').value,
-        description: document.getElementById('envDescription').value,
-        imageUrl: document.getElementById('envImageUrl').value || null
+        name,
+        description: description || null,
+        imageUrl: imageUrl || null
     };
     
     try {
@@ -391,15 +406,41 @@ async function handleCreateLuminaire(event) {
         return;
     }
     
+    const name = document.getElementById('lumName').value.trim();
+    const type = document.getElementById('lumType').value;
+    const brightness = parseInt(document.getElementById('lumBrightness').value);
+    const environmentId = parseInt(document.getElementById('lumEnvironment').value);
+    
+    // Validações
+    if (!name) {
+        showNotification('Nome da luminária é obrigatório', 'error');
+        return;
+    }
+    
+    if (!type) {
+        showNotification('Tipo da luminária é obrigatório', 'error');
+        return;
+    }
+    
+    if (!environmentId || isNaN(environmentId)) {
+        showNotification('Ambiente é obrigatório', 'error');
+        return;
+    }
+    
+    if (brightness < 0 || brightness > 100) {
+        showNotification('Brilho deve estar entre 0 e 100', 'error');
+        return;
+    }
+    
     const formData = {
-        name: document.getElementById('lumName').value,
-        type: document.getElementById('lumType').value,
-        brightness: parseInt(document.getElementById('lumBrightness').value),
+        name,
+        type,
+        brightness,
         color: document.getElementById('lumColor').value,
         status: document.getElementById('lumStatus').checked,
-        positionX: parseFloat(document.getElementById('lumPositionX').value),
-        positionY: parseFloat(document.getElementById('lumPositionY').value),
-        environmentId: parseInt(document.getElementById('lumEnvironment').value)
+        positionX: parseFloat(document.getElementById('lumPositionX').value) || 0,
+        positionY: parseFloat(document.getElementById('lumPositionY').value) || 0,
+        environmentId
     };
     
     try {
