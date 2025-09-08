@@ -556,11 +556,122 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-// Placeholder functions for edit operations
+// Implementar edição de ambientes
 function editEnvironment(id) {
-    showNotification('Funcionalidade de edição em desenvolvimento', 'info');
+    const environment = environments.find(env => env.id === id);
+    if (!environment) {
+        showNotification('Ambiente não encontrado', 'error');
+        return;
+    }
+    
+    // Preencher o modal com dados existentes
+    document.getElementById('envName').value = environment.name;
+    document.getElementById('envDescription').value = environment.description || '';
+    document.getElementById('envImageUrl').value = environment.imageUrl || '';
+    
+    // Alterar o comportamento do formulário para atualização
+    const form = document.getElementById('createEnvironmentForm');
+    form.onsubmit = async function(e) {
+        e.preventDefault();
+        await updateEnvironment(id);
+    };
+    
+    // Mudar título do modal
+    document.querySelector('#createEnvironmentModal .modal-title').textContent = 'Editar Ambiente';
+    
+    // Abrir modal
+    document.getElementById('createEnvironmentModal').style.display = 'flex';
 }
 
+async function updateEnvironment(id) {
+    const formData = {
+        name: document.getElementById('envName').value,
+        description: document.getElementById('envDescription').value,
+        imageUrl: document.getElementById('envImageUrl').value || null
+    };
+    
+    try {
+        showLoading(true);
+        await apiRequest(`/environments/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(formData)
+        });
+        
+        closeModal('createEnvironmentModal');
+        await loadEnvironments();
+        showNotification('Ambiente atualizado com sucesso!', 'success');
+        
+        // Restaurar comportamento original do formulário
+        document.getElementById('createEnvironmentForm').onsubmit = handleCreateEnvironment;
+        document.querySelector('#createEnvironmentModal .modal-title').textContent = 'Criar Novo Ambiente';
+    } catch (error) {
+        showNotification('Erro ao atualizar ambiente: ' + error.message, 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
+// Implementar edição de luminárias
 function editLuminaire(id) {
-    showNotification('Funcionalidade de edição em desenvolvimento', 'info');
+    const luminaire = luminaires.find(lum => lum.id === id);
+    if (!luminaire) {
+        showNotification('Luminária não encontrada', 'error');
+        return;
+    }
+    
+    // Preencher o modal com dados existentes
+    document.getElementById('lumName').value = luminaire.name;
+    document.getElementById('lumType').value = luminaire.type;
+    document.getElementById('lumBrightness').value = luminaire.brightness;
+    document.getElementById('brightnessValue').textContent = luminaire.brightness;
+    document.getElementById('lumColor').value = luminaire.color;
+    document.getElementById('lumEnvironment').value = luminaire.environmentId || '';
+    document.getElementById('lumPositionX').value = luminaire.positionX || '';
+    document.getElementById('lumPositionY').value = luminaire.positionY || '';
+    
+    // Alterar o comportamento do formulário para atualização
+    const form = document.getElementById('createLuminaireForm');
+    form.onsubmit = async function(e) {
+        e.preventDefault();
+        await updateLuminaire(id);
+    };
+    
+    // Mudar título do modal
+    document.querySelector('#createLuminaireModal .modal-title').textContent = 'Editar Luminária';
+    
+    // Abrir modal
+    document.getElementById('createLuminaireModal').style.display = 'flex';
+}
+
+async function updateLuminaire(id) {
+    const formData = {
+        name: document.getElementById('lumName').value,
+        type: document.getElementById('lumType').value,
+        brightness: parseInt(document.getElementById('lumBrightness').value),
+        color: document.getElementById('lumColor').value,
+        environmentId: parseInt(document.getElementById('lumEnvironment').value),
+        positionX: parseFloat(document.getElementById('lumPositionX').value) || null,
+        positionY: parseFloat(document.getElementById('lumPositionY').value) || null,
+        status: false // Manter status atual ou definir padrão
+    };
+    
+    try {
+        showLoading(true);
+        await apiRequest(`/luminaires/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(formData)
+        });
+        
+        closeModal('createLuminaireModal');
+        await loadLuminaires();
+        showNotification('Luminária atualizada com sucesso!', 'success');
+        
+        // Restaurar comportamento original do formulário
+        document.getElementById('createLuminaireForm').onsubmit = handleCreateLuminaire;
+        document.querySelector('#createLuminaireModal .modal-title').textContent = 'Criar Nova Luminária';
+    } catch (error) {
+        showNotification('Erro ao atualizar luminária: ' + error.message, 'error');
+    } finally {
+        showLoading(false);
+    }
 }
