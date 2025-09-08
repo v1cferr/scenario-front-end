@@ -73,7 +73,7 @@ async function handleLogin(event) {
         
         if (response.ok) {
             const data = await response.json();
-            authToken = data.accessToken;
+            authToken = data.token;  // Corrigido: era data.accessToken
             currentUser = { username, role: data.role || 'USER' };
             
             localStorage.setItem('authToken', authToken);
@@ -200,7 +200,7 @@ async function checkHealth() {
 
 async function loadEnvironments() {
     try {
-        environments = await apiRequest('/ambientes');
+        environments = await apiRequest('/environments');
         renderEnvironments();
         updateEnvironmentSelect();
     } catch (error) {
@@ -212,7 +212,7 @@ async function loadEnvironments() {
 
 async function loadLuminaires() {
     try {
-        luminaires = await apiRequest('/luminarias');
+        luminaires = await apiRequest('/luminaires');
         renderLuminaires();
     } catch (error) {
         console.error('Erro carregando luminárias:', error);
@@ -324,7 +324,7 @@ async function handleCreateEnvironment(event) {
     
     try {
         showLoading(true);
-        await apiRequest('/ambientes', {
+        await apiRequest('/environments', {
             method: 'POST',
             body: JSON.stringify(formData)
         });
@@ -349,7 +349,7 @@ async function deleteEnvironment(id) {
     
     try {
         showLoading(true);
-        await apiRequest(`/ambientes/${id}`, { method: 'DELETE' });
+        await apiRequest(`/environments/${id}`, { method: 'DELETE' });
         await loadEnvironments();
         await loadLuminaires(); // Reload luminaires as they might be affected
         showNotification('Ambiente excluído com sucesso!', 'success');
@@ -377,7 +377,7 @@ async function handleCreateLuminaire(event) {
     
     try {
         showLoading(true);
-        await apiRequest('/luminarias', {
+        await apiRequest('/luminaires', {
             method: 'POST',
             body: JSON.stringify(formData)
         });
@@ -408,7 +408,7 @@ async function toggleLuminaire(id) {
     
     try {
         showLoading(true);
-        await apiRequest(`/luminarias/${id}`, {
+        await apiRequest(`/luminaires/${id}`, {
             method: 'PUT',
             body: JSON.stringify(updatedData)
         });
@@ -429,7 +429,7 @@ async function deleteLuminaire(id) {
     
     try {
         showLoading(true);
-        await apiRequest(`/luminarias/${id}`, { method: 'DELETE' });
+        await apiRequest(`/luminaires/${id}`, { method: 'DELETE' });
         await loadLuminaires();
         showNotification('Luminária excluída com sucesso!', 'success');
     } catch (error) {
