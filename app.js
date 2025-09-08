@@ -200,7 +200,9 @@ async function checkHealth() {
 
 async function loadEnvironments() {
     try {
-        environments = await apiRequest('/environments');
+        const response = await apiRequest('/environments');
+        // Corrigir: API retorna paginação {content: [...]} 
+        environments = Array.isArray(response) ? response : (response.content || response.environments || []);
         renderEnvironments();
         updateEnvironmentSelect();
     } catch (error) {
@@ -212,7 +214,9 @@ async function loadEnvironments() {
 
 async function loadLuminaires() {
     try {
-        luminaires = await apiRequest('/luminaires');
+        const response = await apiRequest('/luminaires');
+        // Corrigir: API retorna paginação {content: [...]}
+        luminaires = Array.isArray(response) ? response : (response.content || response.luminaires || []);
         renderLuminaires();
     } catch (error) {
         console.error('Erro carregando luminárias:', error);
