@@ -47,6 +47,12 @@ function setupEventListeners() {
     const createLumForm = document.getElementById('createLuminaireForm');
     createLumForm.addEventListener('submit', handleCreateLuminaire);
     
+    // Image file input preview
+    const envImageInput = document.getElementById('envImage');
+    if (envImageInput) {
+        envImageInput.addEventListener('change', handleImagePreview);
+    }
+    
     // Close modals when clicking outside
     window.addEventListener('click', function(event) {
         if (event.target.classList.contains('modal')) {
@@ -251,25 +257,34 @@ function renderEnvironments() {
         return;
     }
     
-    grid.innerHTML = environments.map(env => `
-        <div class="environment-card">
-            <h4><i class="fas fa-home"></i> ${env.name}</h4>
-            <p>${env.description || 'Sem descrição'}</p>
-            ${env.imageUrl ? `<img src="${env.imageUrl}" alt="${env.name}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 15px;">` : ''}
-            <div class="environment-info">
-                <small style="color: #6b7280;">ID: ${env.id}</small>
-                <small style="color: #6b7280;">Criado: ${new Date(env.createdAt).toLocaleDateString()}</small>
+    grid.innerHTML = environments.map(env => {
+        const imageHtml = env.id ? `
+            <img src="http://localhost:8081/api/images/environment/${env.id}/download" 
+                 alt="${env.name}" 
+                 style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 15px;"
+                 onerror="this.style.display='none'">
+        ` : '';
+        
+        return `
+            <div class="environment-card">
+                <h4><i class="fas fa-home"></i> ${env.name}</h4>
+                <p>${env.description || 'Sem descrição'}</p>
+                ${imageHtml}
+                <div class="environment-info">
+                    <small style="color: #6b7280;">ID: ${env.id}</small>
+                    <small style="color: #6b7280;">Criado: ${new Date(env.createdAt).toLocaleDateString()}</small>
+                </div>
+                <div class="actions">
+                    <button class="btn btn-secondary" onclick="editEnvironment(${env.id})">
+                        <i class="fas fa-edit"></i> Editar
+                    </button>
+                    <button class="btn btn-danger" onclick="deleteEnvironment(${env.id})">
+                        <i class="fas fa-trash"></i> Excluir
+                    </button>
+                </div>
             </div>
-            <div class="actions">
-                <button class="btn btn-secondary" onclick="editEnvironment(${env.id})">
-                    <i class="fas fa-edit"></i> Editar
-                </button>
-                <button class="btn btn-danger" onclick="deleteEnvironment(${env.id})">
-                    <i class="fas fa-trash"></i> Excluir
-                </button>
-            </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
 function renderLuminaires() {
@@ -339,7 +354,7 @@ async function handleCreateEnvironment(event) {
     
     const name = document.getElementById('envName').value.trim();
     const description = document.getElementById('envDescription').value.trim();
-    const imageUrl = document.getElementById('envImageUrl').value.trim();
+    const imageFile = document.getElementById('envImage').files[0];
     
     // Validações
     if (!name) {
@@ -352,18 +367,24 @@ async function handleCreateEnvironment(event) {
         return;
     }
     
-    const formData = {
-        name,
-        description: description || null,
-        imageUrl: imageUrl || null
-    };
-    
     try {
         showLoading(true);
-        await apiRequest('/environments', {
+        
+        // Primeiro, criar o ambiente
+        const formData = {
+            name,
+            description: description || null
+        };
+        
+        const environment = await apiRequest('/environments', {
             method: 'POST',
             body: JSON.stringify(formData)
         });
+        
+        // Se há uma imagem, fazer upload dela
+        if (imageFile) {
+            await uploadEnvironmentImage(environment.id, imageFile);
+        }
         
         closeModal('createEnvironmentModal');
         await loadEnvironments();
@@ -509,6 +530,8 @@ async function deleteLuminaire(id) {
 
 // Modal Operations
 function showCreateEnvironmentModal() {
+    // Limpar preview de imagem ao abrir modal para novo ambiente
+    clearImagePreview('envImage');
     document.getElementById('createEnvironmentModal').style.display = 'block';
 }
 
@@ -528,6 +551,8 @@ function closeModal(modalId) {
         editingEnvironmentId = null;
         document.querySelector('#createEnvironmentModal h3').textContent = 'Criar Ambiente';
         document.getElementById('createEnvironmentForm').reset();
+        // Limpar preview de imagem
+        clearImagePreview('envImage');
     } else if (modalId === 'createLuminaireModal') {
         editingLuminaireId = null;
         document.querySelector('#createLuminaireModal h3').textContent = 'Criar Luminária';
@@ -645,7 +670,9 @@ function editEnvironment(id) {
     // Preencher o modal com dados existentes
     document.getElementById('envName').value = environment.name;
     document.getElementById('envDescription').value = environment.description || '';
-    document.getElementById('envImageUrl').value = environment.imageUrl || '';
+    
+    // Limpar upload de imagem (não tentamos preencher arquivo existente)
+    clearImagePreview('envImage');
     
     // Mudar título do modal
     document.querySelector('#createEnvironmentModal h3').textContent = 'Editar Ambiente';
@@ -655,18 +682,28 @@ function editEnvironment(id) {
 }
 
 async function updateEnvironment(id) {
+    const name = document.getElementById('envName').value;
+    const description = document.getElementById('envDescription').value;
+    const imageFile = document.getElementById('envImage').files[0];
+    
     const formData = {
-        name: document.getElementById('envName').value,
-        description: document.getElementById('envDescription').value,
-        imageUrl: document.getElementById('envImageUrl').value || null
+        name,
+        description: description || null
     };
     
     try {
         showLoading(true);
+        
+        // Atualizar dados do ambiente
         await apiRequest(`/environments/${id}`, {
             method: 'PUT',
             body: JSON.stringify(formData)
         });
+        
+        // Se há uma nova imagem, fazer upload
+        if (imageFile) {
+            await uploadEnvironmentImage(id, imageFile);
+        }
         
         closeModal('createEnvironmentModal');
         await loadEnvironments();
@@ -740,5 +777,67 @@ async function updateLuminaire(id) {
         showNotification('Erro ao atualizar luminária: ' + error.message, 'error');
     } finally {
         showLoading(false);
+    }
+}
+
+// Image Upload Functions
+function handleImagePreview(event) {
+    const file = event.target.files[0];
+    const inputId = event.target.id;
+    const previewId = inputId + 'Preview';
+    const imgId = inputId + 'PreviewImg';
+    
+    const preview = document.getElementById(previewId);
+    const img = document.getElementById(imgId);
+    
+    if (file && file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            img.src = e.target.result;
+            preview.style.display = 'flex';
+        };
+        reader.readAsDataURL(file);
+    } else if (file) {
+        showNotification('Por favor, selecione apenas arquivos de imagem', 'error');
+        event.target.value = '';
+    }
+}
+
+function clearImagePreview(inputId) {
+    const input = document.getElementById(inputId);
+    const previewId = inputId + 'Preview';
+    const preview = document.getElementById(previewId);
+    
+    input.value = '';
+    preview.style.display = 'none';
+}
+
+async function uploadEnvironmentImage(environmentId, imageFile) {
+    const formData = new FormData();
+    formData.append('image', imageFile);
+    formData.append('environmentId', environmentId);
+    formData.append('description', `Imagem do ambiente ${environmentId}`);
+    
+    try {
+        const response = await fetch('http://localhost:8081/api/images/upload', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: formData
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.text();
+            throw new Error(`Erro no upload: ${response.status} - ${errorData}`);
+        }
+        
+        const result = await response.json();
+        console.log('Upload realizado com sucesso:', result);
+        return result;
+    } catch (error) {
+        console.error('Erro no upload da imagem:', error);
+        showNotification('Erro ao fazer upload da imagem: ' + error.message, 'error');
+        throw error;
     }
 }
