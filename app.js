@@ -367,6 +367,12 @@ async function handleCreateEnvironment(event) {
         return;
     }
     
+    // VALIDAÇÃO OBRIGATÓRIA DA IMAGEM
+    if (!imageFile) {
+        showNotification('Imagem do ambiente é obrigatória', 'error');
+        return;
+    }
+    
     try {
         showLoading(true);
         
@@ -381,9 +387,17 @@ async function handleCreateEnvironment(event) {
             body: JSON.stringify(formData)
         });
         
-        // Se há uma imagem, fazer upload dela
-        if (imageFile) {
+        // Upload da imagem é obrigatório - se falhar, deve deletar o ambiente
+        try {
             await uploadEnvironmentImage(environment.id, imageFile);
+        } catch (uploadError) {
+            // Se upload falhar, deletar o ambiente criado
+            try {
+                await apiRequest(`/environments/${environment.id}`, { method: 'DELETE' });
+            } catch (deleteError) {
+                console.error('Erro ao deletar ambiente após falha no upload:', deleteError);
+            }
+            throw new Error(`Upload da imagem falhou: ${uploadError.message}`);
         }
         
         closeModal('createEnvironmentModal');
@@ -814,9 +828,9 @@ function clearImagePreview(inputId) {
 
 async function uploadEnvironmentImage(environmentId, imageFile) {
     const formData = new FormData();
-    formData.append('image', imageFile);
+    formData.append('file', imageFile);
     formData.append('environmentId', environmentId);
-    formData.append('description', `Imagem do ambiente ${environmentId}`);
+    formData.append('imageName', `Imagem do ambiente ${environmentId}`);
     
     try {
         const response = await fetch('http://localhost:8081/api/images/upload', {
@@ -831,7 +845,7 @@ async function uploadEnvironmentImage(environmentId, imageFile) {
             const errorData = await response.text();
             throw new Error(`Erro no upload: ${response.status} - ${errorData}`);
         }
-        
+
         const result = await response.json();
         console.log('Upload realizado com sucesso:', result);
         return result;
