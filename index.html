@@ -157,45 +157,10 @@
                     <input type="text" id="lumName" required>
                 </div>
                 <div class="form-group">
-                    <label for="lumType">Tipo:</label>
-                    <select id="lumType" required>
-                        <option value="LED">LED</option>
-                        <option value="Incandescente">Incandescente</option>
-                        <option value="Fluorescente">Fluorescente</option>
-                        <option value="Halógena">Halógena</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="lumBrightness">Brilho (0-100):</label>
-                    <input type="range" id="lumBrightness" min="0" max="100" value="80">
-                    <span id="brightnessValue">80</span>%
-                </div>
-                <div class="form-group">
-                    <label for="lumColor">Cor:</label>
-                    <input type="color" id="lumColor" value="#FFFFFF">
-                </div>
-                <div class="form-group">
                     <label for="lumEnvironment">Ambiente:</label>
                     <select id="lumEnvironment" required>
                         <!-- Environments will be loaded here -->
                     </select>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="lumPositionX">Posição X:</label>
-                        <input type="number" id="lumPositionX" step="0.1" value="0">
-                    </div>
-                    <div class="form-group">
-                        <label for="lumPositionY">Posição Y:</label>
-                        <input type="number" id="lumPositionY" step="0.1" value="0">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="lumStatus" checked>
-                        <span class="checkmark"></span>
-                        Luminária ligada
-                    </label>
                 </div>
                 <div class="modal-actions">
                     <button type="button" class="btn btn-secondary" onclick="closeModal('createLuminaireModal')">Cancelar</button>

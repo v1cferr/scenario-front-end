@@ -23,15 +23,15 @@ function initializeApp() {
         showLoginSection();
     }
     
-    // Atualizar range de brilho
-    const brightnessRange = document.getElementById('lumBrightness');
-    const brightnessValue = document.getElementById('brightnessValue');
+    // Campo de brilho removido na simplificação
+    // const brightnessRange = document.getElementById('lumBrightness');
+    // const brightnessValue = document.getElementById('brightnessValue');
     
-    if (brightnessRange && brightnessValue) {
-        brightnessRange.addEventListener('input', function() {
-            brightnessValue.textContent = this.value;
-        });
-    }
+    // if (brightnessRange && brightnessValue) {
+    //     brightnessRange.addEventListener('input', function() {
+    //         brightnessValue.textContent = this.value;
+    //     });
+    // }
 }
 
 function setupEventListeners() {
@@ -306,24 +306,13 @@ function renderLuminaires() {
         const envName = env ? env.name : 'Ambiente não encontrado';
         
         return `
-            <div class="luminaire-card ${lum.status ? 'active' : ''}">
-                <div class="luminaire-status ${lum.status ? 'active' : ''}"></div>
+            <div class="luminaire-card">
                 <h4><i class="fas fa-lightbulb"></i> ${lum.name}</h4>
                 <div class="luminaire-info">
-                    <span><strong>Tipo:</strong> ${lum.type}</span>
-                    <span><strong>Brilho:</strong> ${lum.brightness}%</span>
+                    <span><strong>ID:</strong> ${lum.id}</span>
                     <span><strong>Ambiente:</strong> ${envName}</span>
-                    <span><strong>Posição:</strong> (${lum.positionX}, ${lum.positionY})</span>
-                </div>
-                <div style="display: flex; align-items: center; margin-bottom: 15px;">
-                    <span style="font-size: 12px; margin-right: 10px;"><strong>Cor:</strong></span>
-                    <div class="color-indicator" style="background-color: ${lum.color}"></div>
-                    <span style="font-size: 12px; margin-left: 5px;">${lum.color}</span>
                 </div>
                 <div class="actions">
-                    <button class="btn ${lum.status ? 'btn-danger' : 'btn-success'}" onclick="toggleLuminaire(${lum.id})">
-                        <i class="fas fa-power-off"></i> ${lum.status ? 'Desligar' : 'Ligar'}
-                    </button>
                     <button class="btn btn-secondary" onclick="editLuminaire(${lum.id})">
                         <i class="fas fa-edit"></i> Editar
                     </button>
@@ -442,8 +431,6 @@ async function handleCreateLuminaire(event) {
     }
     
     const name = document.getElementById('lumName').value.trim();
-    const type = document.getElementById('lumType').value;
-    const brightness = parseInt(document.getElementById('lumBrightness').value);
     const environmentId = parseInt(document.getElementById('lumEnvironment').value);
     
     // Validações
@@ -452,29 +439,13 @@ async function handleCreateLuminaire(event) {
         return;
     }
     
-    if (!type) {
-        showNotification('Tipo da luminária é obrigatório', 'error');
-        return;
-    }
-    
     if (!environmentId || isNaN(environmentId)) {
         showNotification('Ambiente é obrigatório', 'error');
         return;
     }
     
-    if (brightness < 0 || brightness > 100) {
-        showNotification('Brilho deve estar entre 0 e 100', 'error');
-        return;
-    }
-    
     const formData = {
         name,
-        type,
-        brightness,
-        color: document.getElementById('lumColor').value,
-        status: document.getElementById('lumStatus').checked,
-        positionX: parseFloat(document.getElementById('lumPositionX').value) || 0,
-        positionY: parseFloat(document.getElementById('lumPositionY').value) || 0,
         environmentId
     };
     
@@ -491,35 +462,8 @@ async function handleCreateLuminaire(event) {
         
         // Reset form
         document.getElementById('createLuminaireForm').reset();
-        document.getElementById('lumBrightness').value = 80;
-        document.getElementById('brightnessValue').textContent = '80';
     } catch (error) {
         showNotification('Erro ao criar luminária: ' + error.message, 'error');
-    } finally {
-        showLoading(false);
-    }
-}
-
-async function toggleLuminaire(id) {
-    const luminaire = luminaires.find(l => l.id === id);
-    if (!luminaire) return;
-    
-    const updatedData = {
-        ...luminaire,
-        status: !luminaire.status
-    };
-    
-    try {
-        showLoading(true);
-        await apiRequest(`/luminaires/${id}`, {
-            method: 'PUT',
-            body: JSON.stringify(updatedData)
-        });
-        
-        await loadLuminaires();
-        showNotification(`Luminária ${updatedData.status ? 'ligada' : 'desligada'} com sucesso!`, 'success');
-    } catch (error) {
-        showNotification('Erro ao alterar luminária: ' + error.message, 'error');
     } finally {
         showLoading(false);
     }
@@ -554,7 +498,15 @@ function showCreateLuminaireModal() {
         showNotification('Crie um ambiente primeiro!', 'warning');
         return;
     }
-    document.getElementById('createLuminaireModal').style.display = 'block';
+    
+    // Resetar flag de edição e título do modal para criar nova luminária
+    editingLuminaireId = null;
+    document.querySelector('#createLuminaireModal h3').textContent = 'Criar Luminária';
+    
+    // Carregar ambientes no select
+    updateEnvironmentSelect();
+    
+    document.getElementById('createLuminaireModal').style.display = 'flex';
 }
 
 function closeModal(modalId) {
@@ -744,15 +696,12 @@ function editLuminaire(id) {
     // Definir o ID de edição
     editingLuminaireId = id;
     
-    // Preencher o modal com dados existentes
-    document.getElementById('lumName').value = luminaire.name;
-    document.getElementById('lumType').value = luminaire.type;
-    document.getElementById('lumBrightness').value = luminaire.brightness;
-    document.getElementById('brightnessValue').textContent = luminaire.brightness;
-    document.getElementById('lumColor').value = luminaire.color;
+    // Carregar ambientes no select primeiro
+    updateEnvironmentSelect();
+    
+    // Preencher o modal com dados existentes (apenas campos que existem)
+    document.getElementById('lumName').value = luminaire.name || '';
     document.getElementById('lumEnvironment').value = luminaire.environmentId || '';
-    document.getElementById('lumPositionX').value = luminaire.positionX || '';
-    document.getElementById('lumPositionY').value = luminaire.positionY || '';
     
     // Mudar título do modal
     document.querySelector('#createLuminaireModal h3').textContent = 'Editar Luminária';
@@ -764,13 +713,7 @@ function editLuminaire(id) {
 async function updateLuminaire(id) {
     const formData = {
         name: document.getElementById('lumName').value,
-        type: document.getElementById('lumType').value,
-        brightness: parseInt(document.getElementById('lumBrightness').value),
-        color: document.getElementById('lumColor').value,
-        environmentId: parseInt(document.getElementById('lumEnvironment').value),
-        positionX: parseFloat(document.getElementById('lumPositionX').value) || null,
-        positionY: parseFloat(document.getElementById('lumPositionY').value) || null,
-        status: false // Manter status atual ou definir padrão
+        environmentId: parseInt(document.getElementById('lumEnvironment').value)
     };
     
     try {
