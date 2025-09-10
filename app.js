@@ -244,6 +244,7 @@ async function loadLuminaires() {
 
 // Rendering
 function renderEnvironments() {
+    console.log('🏠 Renderizando ambientes...', environments.length, 'ambientes encontrados');
     const grid = document.getElementById('environmentsGrid');
     
     if (environments.length === 0) {
@@ -258,18 +259,16 @@ function renderEnvironments() {
     }
     
     grid.innerHTML = environments.map(env => {
-        const imageHtml = env.id ? `
-            <img src="http://localhost:8081/api/images/environment/${env.id}/download" 
-                 alt="${env.name}" 
-                 style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 15px;"
-                 onerror="this.style.display='none'">
-        ` : '';
-        
         return `
-            <div class="environment-card">
+            <div class="environment-card" data-environment-id="${env.id}">
+                <div class="environment-image">
+                    <img alt="${env.name}" 
+                         style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 15px; display: none;"
+                         onerror="this.style.display='none'">
+                    <div class="image-count" style="display: none; position: absolute; top: 5px; right: 5px; background: rgba(0,0,0,0.7); color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px;"></div>
+                </div>
                 <h4><i class="fas fa-home"></i> ${env.name}</h4>
                 <p>${env.description || 'Sem descrição'}</p>
-                ${imageHtml}
                 <div class="environment-info">
                     <small style="color: #6b7280;">ID: ${env.id}</small>
                     <small style="color: #6b7280;">Criado: ${new Date(env.createdAt).toLocaleDateString()}</small>
@@ -285,6 +284,12 @@ function renderEnvironments() {
             </div>
         `;
     }).join('');
+
+    console.log('📋 HTML dos ambientes gerado, chamando loadEnvironmentImages()...');
+    // Carregar as imagens dos ambientes após renderizar
+    setTimeout(() => {
+        loadEnvironmentImages();
+    }, 100); // Pequeno delay para garantir que o DOM foi atualizado
 }
 
 function renderLuminaires() {
@@ -772,11 +777,10 @@ function clearImagePreview(inputId) {
 async function uploadEnvironmentImage(environmentId, imageFile) {
     const formData = new FormData();
     formData.append('file', imageFile);
-    formData.append('environmentId', environmentId);
     formData.append('imageName', `Imagem do ambiente ${environmentId}`);
     
     try {
-        const response = await fetch('http://localhost:8081/api/images/upload', {
+        const response = await fetch(`${API_BASE_URL}/environments/${environmentId}/images/upload`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${authToken}`
@@ -797,4 +801,80 @@ async function uploadEnvironmentImage(environmentId, imageFile) {
         showNotification('Erro ao fazer upload da imagem: ' + error.message, 'error');
         throw error;
     }
+}
+
+// Função para carregar as imagens dos ambientes
+async function loadEnvironmentImages() {
+    console.log('🖼️ Iniciando carregamento de imagens dos ambientes...');
+    
+    if (!authToken) {
+        console.log('❌ Token de autenticação não encontrado');
+        return;
+    }
+
+    const environments = document.querySelectorAll('.environment-card');
+    console.log(`📋 Encontrados ${environments.length} ambientes para carregar imagens`);
+    
+    for (const envCard of environments) {
+        const envId = envCard.dataset.environmentId;
+        console.log(`🔍 Carregando imagens para ambiente ${envId}...`);
+        
+        try {
+            const response = await fetch(`${API_BASE_URL}/environments/${envId}/images-urls`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log(`✅ Dados de imagens recebidos para ambiente ${envId}:`, data);
+                
+                if (data.images && data.images.length > 0) {
+                    // Usar a primeira imagem como principal
+                    const firstImage = data.images[0];
+                    const img = envCard.querySelector('.environment-image img');
+                    
+                    if (img && firstImage.url) {
+                        console.log(`🖼️ Configurando imagem para ambiente ${envId}: ${firstImage.url}`);
+                        
+                        img.onload = function() {
+                            console.log(`✅ Imagem carregada com sucesso para ambiente ${envId}`);
+                            img.style.display = 'block';
+                        };
+                        
+                        img.onerror = function() {
+                            console.log(`❌ Erro ao carregar imagem para ambiente ${envId}: ${firstImage.url}`);
+                            img.style.display = 'none';
+                        };
+                        
+                        img.src = firstImage.url;
+                        
+                        // Adicionar informações extras se existirem múltiplas imagens
+                        if (data.images.length > 1) {
+                            const imageCount = envCard.querySelector('.image-count');
+                            if (imageCount) {
+                                imageCount.textContent = `+${data.images.length - 1} imagens`;
+                                imageCount.style.display = 'block';
+                            }
+                        }
+                    }
+                } else {
+                    console.log(`⚠️ Nenhuma imagem encontrada para ambiente ${envId}`);
+                    const img = envCard.querySelector('.environment-image img');
+                    if (img) {
+                        img.style.display = 'none';
+                    }
+                }
+            } else {
+                console.log(`❌ Erro ao buscar imagens para ambiente ${envId}: ${response.status}`);
+            }
+        } catch (error) {
+            console.error(`❌ Erro de rede ao carregar imagens para ambiente ${envId}:`, error);
+        }
+    }
+    
+    console.log('🏁 Carregamento de imagens concluído');
 }
