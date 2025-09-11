@@ -377,21 +377,6 @@ body {
     border: 1px solid #e5e7eb;
 }
 
-.luminaire-status {
-    position: absolute;
-    top: 15px;
-    right: 15px;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: #ef4444;
-}
-
-.luminaire-status.active {
-    background: #10b981;
-    box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
-}
-
 .luminaire-card .actions {
     display: flex;
     gap: 8px;
@@ -404,6 +389,89 @@ body {
     flex: 1;
     min-width: 80px;
     justify-content: center;
+}
+
+/* Status da Luminária */
+.luminaire-status {
+    margin: 15px 0;
+    padding: 0;
+    position: relative;
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    border: 2px solid;
+    transition: all 0.3s ease;
+}
+
+.status-indicator.on {
+    background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+    border-color: #10b981;
+    color: #065f46;
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
+}
+
+.status-indicator.off {
+    background: linear-gradient(135deg, #fef2f2, #fee2e2);
+    border-color: #ef4444;
+    color: #991b1b;
+}
+
+.status-indicator i {
+    font-size: 16px;
+}
+
+.status-indicator.on i {
+    color: #10b981;
+    text-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+}
+
+.status-indicator.off i {
+    color: #ef4444;
+}
+
+/* Controles de Automação */
+.automation-controls {
+    margin: 15px 0;
+    display: flex;
+    justify-content: center;
+}
+
+.toggle-btn {
+    font-size: 14px !important;
+    padding: 10px 20px !important;
+    border-radius: 8px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    border: 2px solid;
+    min-width: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.toggle-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-btn i {
+    font-size: 16px;
+}
+
+/* Separar os controles das ações administrativas */
+.luminaire-card .actions {
+    border-top: 1px solid #e5e7eb;
+    padding-top: 15px;
+    margin-top: 15px;
 }
 
 /* Modals */

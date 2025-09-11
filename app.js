@@ -8,6 +8,8 @@ let environments = [];
 let luminaires = [];
 let editingEnvironmentId = null;
 let editingLuminaireId = null;
+let luminariaStates = {}; // Armazena o estado de cada luminária (id -> isOn)
+let sseEventSource = null; // Conexão SSE
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', function() {
@@ -103,6 +105,15 @@ async function handleLogin(event) {
 }
 
 function logout() {
+    // Fechar conexão SSE
+    if (sseEventSource) {
+        sseEventSource.close();
+        sseEventSource = null;
+    }
+    
+    // Limpar estado das luminárias
+    luminariaStates = {};
+    
     authToken = null;
     currentUser = null;
     localStorage.removeItem('authToken');
@@ -174,11 +185,108 @@ async function loadData() {
             loadLuminaires(),
             checkHealth()
         ]);
+        // Conectar ao SSE após carregar os dados
+        connectToSSE();
     } catch (error) {
         console.error('Erro carregando dados:', error);
         showNotification('Erro ao carregar dados: ' + error.message, 'error');
     } finally {
         showLoading(false);
+    }
+}
+
+// Conexão SSE para atualizações em tempo real
+function connectToSSE() {
+    // Fechar conexão anterior se existir
+    if (sseEventSource) {
+        sseEventSource.close();
+    }
+    
+    // Verificar se temos token de autenticação
+    if (!authToken) {
+        console.log('❌ Token não disponível para SSE');
+        return;
+    }
+    
+    // Incluir token como query parameter (EventSource não suporta headers customizados)
+    const sseUrl = `${API_BASE_URL}/luminaires/automation/events?token=${authToken}`;
+    sseEventSource = new EventSource(sseUrl);
+    
+    // Handler para estado inicial
+    sseEventSource.addEventListener('initial_state', function(event) {
+        console.log('🔌 Estado inicial das luminárias recebido:', event.data);
+        try {
+            const data = JSON.parse(event.data);
+            if (data.allStates) {
+                luminariaStates = data.allStates;
+                updateLuminariaStatesUI();
+            }
+        } catch (error) {
+            console.error('Erro processando estado inicial:', error);
+        }
+    });
+    
+    // Handler para mudanças de estado
+    sseEventSource.addEventListener('state_change', function(event) {
+        console.log('💡 Mudança de estado recebida:', event.data);
+        try {
+            const data = JSON.parse(event.data);
+            if (data.luminariaId !== undefined && data.isOn !== undefined) {
+                luminariaStates[data.luminariaId] = data.isOn;
+                updateLuminariaStateUI(data.luminariaId, data.isOn);
+                showNotification(
+                    `Luminária ${data.luminariaId} ${data.isOn ? 'ligada' : 'desligada'}`, 
+                    'info'
+                );
+            }
+        } catch (error) {
+            console.error('Erro processando mudança de estado:', error);
+        }
+    });
+    
+    // Handler para erros
+    sseEventSource.onerror = function(event) {
+        console.error('❌ Erro na conexão SSE:', event);
+        showNotification('Conexão com servidor perdida. Tentando reconectar...', 'warning');
+        
+        // Tentar reconectar após 5 segundos
+        setTimeout(() => {
+            if (authToken && currentUser) {
+                console.log('🔄 Tentando reconectar SSE...');
+                connectToSSE();
+            }
+        }, 5000);
+    };
+    
+    // Handler para abertura da conexão
+    sseEventSource.onopen = function(event) {
+        console.log('✅ Conexão SSE estabelecida');
+    };
+}
+
+// Atualizar UI de uma luminária específica
+function updateLuminariaStateUI(luminariaId, isOn) {
+    const lumCard = document.querySelector(`[data-luminaria-id="${luminariaId}"]`);
+    if (lumCard) {
+        const statusIndicator = lumCard.querySelector('.status-indicator');
+        const toggleBtn = lumCard.querySelector('.toggle-btn');
+        
+        if (statusIndicator) {
+            statusIndicator.className = `status-indicator ${isOn ? 'on' : 'off'}`;
+            statusIndicator.innerHTML = `<i class="fas fa-lightbulb"></i> ${isOn ? 'Ligada' : 'Desligada'}`;
+        }
+        
+        if (toggleBtn) {
+            toggleBtn.className = `btn toggle-btn ${isOn ? 'btn-danger' : 'btn-success'}`;
+            toggleBtn.innerHTML = `<i class="fas fa-power-off"></i> ${isOn ? 'Desligar' : 'Ligar'}`;
+        }
+    }
+}
+
+// Atualizar UI de todas as luminárias
+function updateLuminariaStatesUI() {
+    for (const [luminariaId, isOn] of Object.entries(luminariaStates)) {
+        updateLuminariaStateUI(parseInt(luminariaId), isOn);
     }
 }
 
@@ -309,14 +417,32 @@ function renderLuminaires() {
     grid.innerHTML = luminaires.map(lum => {
         const env = environments.find(e => e.id === lum.environmentId);
         const envName = env ? env.name : 'Ambiente não encontrado';
+        const isOn = luminariaStates[lum.id] || false; // Estado da luminária
         
         return `
-            <div class="luminaire-card">
+            <div class="luminaire-card" data-luminaria-id="${lum.id}">
                 <h4><i class="fas fa-lightbulb"></i> ${lum.name}</h4>
                 <div class="luminaire-info">
                     <span><strong>ID:</strong> ${lum.id}</span>
                     <span><strong>Ambiente:</strong> ${envName}</span>
                 </div>
+                
+                <!-- Status da luminária -->
+                <div class="luminaire-status">
+                    <div class="status-indicator ${isOn ? 'on' : 'off'}">
+                        <i class="fas fa-lightbulb"></i> ${isOn ? 'Ligada' : 'Desligada'}
+                    </div>
+                </div>
+                
+                <!-- Controles de automação -->
+                <div class="automation-controls">
+                    <button class="btn toggle-btn ${isOn ? 'btn-danger' : 'btn-success'}" 
+                            onclick="toggleLuminaria(${lum.id})">
+                        <i class="fas fa-power-off"></i> ${isOn ? 'Desligar' : 'Ligar'}
+                    </button>
+                </div>
+                
+                <!-- Ações administrativas -->
                 <div class="actions">
                     <button class="btn btn-secondary" onclick="editLuminaire(${lum.id})">
                         <i class="fas fa-edit"></i> Editar
@@ -488,6 +614,72 @@ async function deleteLuminaire(id) {
         showNotification('Erro ao excluir luminária: ' + error.message, 'error');
     } finally {
         showLoading(false);
+    }
+}
+
+// Funções de Automação das Luminárias
+async function toggleLuminaria(id) {
+    try {
+        const response = await apiRequest(`/luminaires/automation/${id}/toggle`, { 
+            method: 'POST' 
+        });
+        
+        console.log(`🔄 Toggle luminária ${id}:`, response);
+        // O estado será atualizado via SSE, não precisamos fazer nada aqui
+        
+    } catch (error) {
+        console.error('Erro ao alternar luminária:', error);
+        showNotification('Erro ao controlar luminária: ' + error.message, 'error');
+    }
+}
+
+async function turnOnLuminaria(id) {
+    try {
+        const response = await apiRequest(`/luminaires/automation/${id}/turn-on`, { 
+            method: 'POST' 
+        });
+        
+        console.log(`💡 Ligar luminária ${id}:`, response);
+        // O estado será atualizado via SSE
+        
+    } catch (error) {
+        console.error('Erro ao ligar luminária:', error);
+        showNotification('Erro ao ligar luminária: ' + error.message, 'error');
+    }
+}
+
+async function turnOffLuminaria(id) {
+    try {
+        const response = await apiRequest(`/luminaires/automation/${id}/turn-off`, { 
+            method: 'POST' 
+        });
+        
+        console.log(`🌙 Desligar luminária ${id}:`, response);
+        // O estado será atualizado via SSE
+        
+    } catch (error) {
+        console.error('Erro ao desligar luminária:', error);
+        showNotification('Erro ao desligar luminária: ' + error.message, 'error');
+    }
+}
+
+async function getLuminariaState(id) {
+    try {
+        const response = await apiRequest(`/luminaires/automation/${id}/state`);
+        return response;
+    } catch (error) {
+        console.error('Erro ao obter estado da luminária:', error);
+        return null;
+    }
+}
+
+async function getAllLuminariaStates() {
+    try {
+        const response = await apiRequest('/luminaires/automation/states');
+        return response.states || {};
+    } catch (error) {
+        console.error('Erro ao obter estados das luminárias:', error);
+        return {};
     }
 }
 
