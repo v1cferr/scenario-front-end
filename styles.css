@@ -474,6 +474,33 @@ body {
     margin-top: 15px;
 }
 
+/* Status SSE */
+.sse-status {
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.sse-status.connected {
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+
+.sse-status.disconnected {
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+.sse-status i {
+    font-size: 10px;
+}
+
 /* Modals */
 .modal {
     display: none;

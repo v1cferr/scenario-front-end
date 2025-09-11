@@ -248,6 +248,7 @@ function connectToSSE() {
     sseEventSource.onerror = function(event) {
         console.error('❌ Erro na conexão SSE:', event);
         showNotification('Conexão com servidor perdida. Tentando reconectar...', 'warning');
+        updateSSEStatus(false);
         
         // Tentar reconectar após 5 segundos
         setTimeout(() => {
@@ -261,6 +262,8 @@ function connectToSSE() {
     // Handler para abertura da conexão
     sseEventSource.onopen = function(event) {
         console.log('✅ Conexão SSE estabelecida');
+        showNotification('🔌 Automação conectada! Estado em tempo real ativo.', 'success');
+        updateSSEStatus(true);
     };
 }
 
@@ -287,6 +290,17 @@ function updateLuminariaStateUI(luminariaId, isOn) {
 function updateLuminariaStatesUI() {
     for (const [luminariaId, isOn] of Object.entries(luminariaStates)) {
         updateLuminariaStateUI(parseInt(luminariaId), isOn);
+    }
+}
+
+// Atualizar indicador de status SSE
+function updateSSEStatus(connected) {
+    const statusElement = document.getElementById('sseStatus');
+    if (statusElement) {
+        statusElement.className = `sse-status ${connected ? 'connected' : 'disconnected'}`;
+        statusElement.innerHTML = connected 
+            ? '<i class="fas fa-wifi"></i> Tempo Real Ativo' 
+            : '<i class="fas fa-wifi-slash"></i> Desconectado';
     }
 }
 
