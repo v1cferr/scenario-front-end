@@ -107,7 +107,9 @@ async function handleLogin(event) {
 function logout() {
     // Fechar conexão SSE
     if (sseEventSource) {
-        sseEventSource.close();
+        if (sseEventSource.abort) {
+            sseEventSource.abort();
+        }
         sseEventSource = null;
     }
     
@@ -195,11 +197,14 @@ async function loadData() {
     }
 }
 
-// Conexão SSE para atualizações em tempo real
+// Conexão SSE para atualizações em tempo real usando fetch + ReadableStream
 function connectToSSE() {
     // Fechar conexão anterior se existir
     if (sseEventSource) {
-        sseEventSource.close();
+        if (sseEventSource.abort) {
+            sseEventSource.abort();
+        }
+        sseEventSource = null;
     }
     
     // Verificar se temos token de autenticação
@@ -208,45 +213,98 @@ function connectToSSE() {
         return;
     }
     
-    // Incluir token como query parameter (EventSource não suporta headers customizados)
-    const sseUrl = `${API_BASE_URL}/luminaires/automation/events?token=${authToken}`;
-    sseEventSource = new EventSource(sseUrl);
+    console.log('🔌 Conectando ao SSE com Authorization header...');
     
-    // Handler para estado inicial
-    sseEventSource.addEventListener('initial_state', function(event) {
-        console.log('🔌 Estado inicial das luminárias recebido:', event.data);
-        try {
-            const data = JSON.parse(event.data);
-            if (data.allStates) {
-                luminariaStates = data.allStates;
-                updateLuminariaStatesUI();
-            }
-        } catch (error) {
-            console.error('Erro processando estado inicial:', error);
+    // Usar fetch com ReadableStream para suportar headers customizados
+    const sseUrl = `${API_BASE_URL}/luminaires/automation/events`;
+    const controller = new AbortController();
+    sseEventSource = controller; // Armazenar o controller para poder cancelar
+    
+    fetch(sseUrl, {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Accept': 'text/event-stream',
+            'Cache-Control': 'no-cache'
+        },
+        signal: controller.signal
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-    });
-    
-    // Handler para mudanças de estado
-    sseEventSource.addEventListener('state_change', function(event) {
-        console.log('💡 Mudança de estado recebida:', event.data);
-        try {
-            const data = JSON.parse(event.data);
-            if (data.luminariaId !== undefined && data.isOn !== undefined) {
-                luminariaStates[data.luminariaId] = data.isOn;
-                updateLuminariaStateUI(data.luminariaId, data.isOn);
-                showNotification(
-                    `Luminária ${data.luminariaId} ${data.isOn ? 'ligada' : 'desligada'}`, 
-                    'info'
-                );
-            }
-        } catch (error) {
-            console.error('Erro processando mudança de estado:', error);
+        
+        console.log('✅ Conexão SSE estabelecida');
+        showNotification('🔌 Automação conectada! Estado em tempo real ativo.', 'success');
+        updateSSEStatus(true);
+        
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        
+        // Função para processar o stream
+        function processStream() {
+            return reader.read().then(({ done, value }) => {
+                if (done) {
+                    console.log('🔚 Stream SSE terminado');
+                    return;
+                }
+                
+                // Decodificar dados recebidos
+                const chunk = decoder.decode(value, { stream: true });
+                const lines = chunk.split('\n');
+                
+                for (let line of lines) {
+                    if (line.startsWith('event:')) {
+                        const eventType = line.substring(6).trim();
+                        continue;
+                    }
+                    
+                    if (line.startsWith('data:')) {
+                        const eventData = line.substring(5).trim();
+                        
+                        try {
+                            // Processar dados baseado no tipo de evento
+                            if (eventData) {
+                                const data = JSON.parse(eventData);
+                                
+                                // Detectar tipo de evento baseado na estrutura dos dados
+                                if (data.allStates) {
+                                    // Evento initial_state
+                                    console.log('� Estado inicial das luminárias recebido:', eventData);
+                                    luminariaStates = data.allStates;
+                                    updateLuminariaStatesUI();
+                                } else if (data.luminariaId !== undefined && data.isOn !== undefined) {
+                                    // Evento state_change
+                                    console.log('💡 Mudança de estado recebida:', eventData);
+                                    luminariaStates[data.luminariaId] = data.isOn;
+                                    updateLuminariaStateUI(data.luminariaId, data.isOn);
+                                    showNotification(
+                                        `Luminária ${data.luminariaId} ${data.isOn ? 'ligada' : 'desligada'}`, 
+                                        'info'
+                                    );
+                                }
+                            }
+                        } catch (error) {
+                            console.error('Erro processando dados SSE:', error);
+                        }
+                    }
+                }
+                
+                // Continuar lendo o stream
+                return processStream();
+            });
         }
-    });
-    
-    // Handler para erros
-    sseEventSource.onerror = function(event) {
-        console.error('❌ Erro na conexão SSE:', event);
+        
+        // Iniciar processamento do stream
+        return processStream();
+    })
+    .catch(error => {
+        if (error.name === 'AbortError') {
+            console.log('🔌 Conexão SSE cancelada');
+            return;
+        }
+        
+        console.error('❌ Erro na conexão SSE:', error);
         showNotification('Conexão com servidor perdida. Tentando reconectar...', 'warning');
         updateSSEStatus(false);
         
@@ -257,14 +315,7 @@ function connectToSSE() {
                 connectToSSE();
             }
         }, 5000);
-    };
-    
-    // Handler para abertura da conexão
-    sseEventSource.onopen = function(event) {
-        console.log('✅ Conexão SSE estabelecida');
-        showNotification('🔌 Automação conectada! Estado em tempo real ativo.', 'success');
-        updateSSEStatus(true);
-    };
+    });
 }
 
 // Atualizar UI de uma luminária específica
@@ -391,6 +442,33 @@ function renderEnvironments() {
                 </div>
                 <h4><i class="fas fa-home"></i> ${env.name}</h4>
                 <p>${env.description || 'Sem descrição'}</p>
+                
+                <div class="subambiente-section">
+                    <div class="subambiente-header">
+                        <span class="subambiente-label">Subambiente</span>
+                    </div>
+                    <div class="subambiente-display">
+                        <span class="subambiente-value ${env.subambiente ? '' : 'empty'}" id="subambiente-value-${env.id}">
+                            ${env.subambiente || 'Não definido'}
+                        </span>
+                        <button class="subambiente-edit-btn" onclick="editSubambiente(${env.id})" title="Editar subambiente">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </div>
+                    <div class="subambiente-edit-form" id="subambiente-form-${env.id}">
+                        <input type="text" class="subambiente-input" id="subambiente-input-${env.id}" 
+                               placeholder="Ex: Closet, Banheiro, Sala..." value="${env.subambiente || ''}">
+                        <div class="subambiente-actions">
+                            <button class="subambiente-save-btn" onclick="saveSubambiente(${env.id})">
+                                <i class="fas fa-check"></i> Salvar
+                            </button>
+                            <button class="subambiente-cancel-btn" onclick="cancelEditSubambiente(${env.id})">
+                                <i class="fas fa-times"></i> Cancelar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
                 <div class="environment-info">
                     <small style="color: #6b7280;">ID: ${env.id}</small>
                     <small style="color: #6b7280;">Criado: ${new Date(env.createdAt).toLocaleDateString()}</small>
@@ -488,6 +566,7 @@ async function handleCreateEnvironment(event) {
     
     const name = document.getElementById('envName').value.trim();
     const description = document.getElementById('envDescription').value.trim();
+    const subambiente = document.getElementById('envSubambiente').value.trim();
     const imageFile = document.getElementById('envImage').files[0];
     
     // Validações
@@ -513,7 +592,8 @@ async function handleCreateEnvironment(event) {
         // Primeiro, criar o ambiente
         const formData = {
             name,
-            description: description || null
+            description: description || null,
+            subambiente: subambiente || null
         };
         
         const environment = await apiRequest('/environments', {
@@ -847,6 +927,7 @@ function editEnvironment(id) {
     // Preencher o modal com dados existentes
     document.getElementById('envName').value = environment.name;
     document.getElementById('envDescription').value = environment.description || '';
+    document.getElementById('envSubambiente').value = environment.subambiente || '';
     
     // Limpar upload de imagem (não tentamos preencher arquivo existente)
     clearImagePreview('envImage');
@@ -861,11 +942,13 @@ function editEnvironment(id) {
 async function updateEnvironment(id) {
     const name = document.getElementById('envName').value;
     const description = document.getElementById('envDescription').value;
+    const subambiente = document.getElementById('envSubambiente').value.trim();
     const imageFile = document.getElementById('envImage').files[0];
     
     const formData = {
         name,
-        description: description || null
+        description: description || null,
+        subambiente: subambiente || null
     };
     
     try {
@@ -1084,3 +1167,106 @@ async function loadEnvironmentImages() {
     
     console.log('🏁 Carregamento de imagens concluído');
 }
+
+// =================== FUNÇÕES DE GERENCIAMENTO DE SUBAMBIENTES ===================
+
+function editSubambiente(envId) {
+    const form = document.getElementById(`subambiente-form-${envId}`);
+    const display = document.querySelector(`#subambiente-value-${envId}`).parentElement;
+    const input = document.getElementById(`subambiente-input-${envId}`);
+    
+    // Mostrar formulário de edição
+    form.classList.add('active');
+    display.style.display = 'none';
+    
+    // Focar no input
+    input.focus();
+    input.select();
+}
+
+function cancelEditSubambiente(envId) {
+    const form = document.getElementById(`subambiente-form-${envId}`);
+    const display = document.querySelector(`#subambiente-value-${envId}`).parentElement;
+    const input = document.getElementById(`subambiente-input-${envId}`);
+    
+    // Restaurar valor original
+    const env = environments.find(e => e.id === envId);
+    input.value = env ? (env.subambiente || '') : '';
+    
+    // Esconder formulário de edição
+    form.classList.remove('active');
+    display.style.display = 'flex';
+}
+
+async function saveSubambiente(envId) {
+    const input = document.getElementById(`subambiente-input-${envId}`);
+    const newSubambiente = input.value.trim();
+    
+    try {
+        // Usar endpoint específico para subambientes
+        const endpoint = `/environments/${envId}/subambientes`;
+        const method = 'PUT';
+        const body = { subambiente: newSubambiente || null };
+        
+        const response = await apiRequest(endpoint, {
+            method: method,
+            body: JSON.stringify(body)
+        });
+        
+        // Atualizar dados locais
+        const envIndex = environments.findIndex(e => e.id === envId);
+        if (envIndex !== -1) {
+            environments[envIndex].subambiente = newSubambiente || null;
+        }
+        
+        // Atualizar interface
+        updateSubambienteDisplay(envId, newSubambiente);
+        
+        // Esconder formulário
+        cancelEditSubambiente(envId);
+        
+        showNotification(
+            newSubambiente 
+                ? `Subambiente "${newSubambiente}" salvo com sucesso!`
+                : 'Subambiente removido com sucesso!', 
+            'success'
+        );
+        
+    } catch (error) {
+        console.error('Erro ao salvar subambiente:', error);
+        showNotification('Erro ao salvar subambiente: ' + error.message, 'error');
+    }
+}
+
+function updateSubambienteDisplay(envId, subambiente) {
+    const valueElement = document.getElementById(`subambiente-value-${envId}`);
+    const form = document.getElementById(`subambiente-form-${envId}`);
+    const display = valueElement.parentElement;
+    
+    if (subambiente) {
+        valueElement.textContent = subambiente;
+        valueElement.classList.remove('empty');
+    } else {
+        valueElement.textContent = 'Não definido';
+        valueElement.classList.add('empty');
+    }
+    
+    // Esconder formulário e mostrar display
+    form.classList.remove('active');
+    display.style.display = 'flex';
+}
+
+// Adicionar event listeners para Enter e Escape nos inputs de subambiente
+document.addEventListener('keydown', function(event) {
+    if (event.target.classList.contains('subambiente-input')) {
+        const envId = parseInt(event.target.id.replace('subambiente-input-', ''));
+        
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            saveSubambiente(envId);
+        } else if (event.key === 'Escape') {
+            event.preventDefault();
+            cancelEditSubambiente(envId);
+        }
+    }
+});

@@ -198,6 +198,13 @@ body {
     background: #f0f0ff;
 }
 
+.form-help {
+    font-size: 0.85rem;
+    color: #666;
+    margin-top: 4px;
+    font-style: italic;
+}
+
 .file-preview {
     margin-top: 10px;
     padding: 10px;
@@ -277,36 +284,181 @@ body {
     background: #f8fafc;
     border: 2px solid #e5e7eb;
     border-radius: 12px;
-    padding: 20px;
+    padding: 25px;
     transition: all 0.3s ease;
+    min-height: 320px;
+    display: flex;
+    flex-direction: column;
 }
 
 .environment-card:hover {
     border-color: #4f46e5;
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
 }
 
 .environment-card h4 {
     color: #4f46e5;
-    margin-bottom: 10px;
-    font-size: 1.2rem;
+    margin-bottom: 12px;
+    font-size: 1.3rem;
+    font-weight: 600;
 }
 
 .environment-card p {
     color: #6b7280;
     margin-bottom: 15px;
     font-size: 14px;
+    flex-grow: 1;
+}
+
+.environment-card .environment-info {
+    margin-bottom: 15px;
+    padding: 8px 0;
+    border-top: 1px solid #e5e7eb;
+    font-size: 12px;
 }
 
 .environment-card .actions {
     display: flex;
-    gap: 10px;
+    gap: 8px;
+    margin-top: auto;
 }
 
 .environment-card .btn {
-    padding: 8px 16px;
+    padding: 8px 12px;
+    font-size: 11px;
+    flex: 1;
+}
+
+/* Subambiente Badge */
+.subambiente-badge {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    margin: 5px 0;
+    display: inline-block;
+    box-shadow: 0 2px 4px rgba(99, 102, 241, 0.3);
+}
+
+.subambiente-badge i {
+    margin-right: 3px;
+    font-size: 10px;
+}
+
+/* Subambiente Section */
+.subambiente-section {
+    margin: 12px 0;
+    padding: 12px;
+    background: rgba(99, 102, 241, 0.05);
+    border-radius: 8px;
+    border: 1px solid rgba(99, 102, 241, 0.1);
+}
+
+.subambiente-header {
+    display: flex;
+    justify-content: between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.subambiente-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #6366f1;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.subambiente-display {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.subambiente-value {
+    font-size: 13px;
+    color: #374151;
+    font-weight: 500;
+}
+
+.subambiente-value.empty {
+    color: #9ca3af;
+    font-style: italic;
+}
+
+.subambiente-edit-btn {
+    background: none;
+    border: none;
+    color: #6366f1;
+    cursor: pointer;
     font-size: 12px;
+    padding: 4px 6px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.subambiente-edit-btn:hover {
+    background: rgba(99, 102, 241, 0.1);
+}
+
+.subambiente-edit-form {
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.subambiente-edit-form.active {
+    display: flex;
+}
+
+.subambiente-input {
+    padding: 6px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.subambiente-input:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+}
+
+.subambiente-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.subambiente-save-btn, .subambiente-cancel-btn {
+    padding: 4px 8px;
+    border: none;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.subambiente-save-btn {
+    background: #10b981;
+    color: white;
+}
+
+.subambiente-save-btn:hover {
+    background: #059669;
+}
+
+.subambiente-cancel-btn {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+.subambiente-cancel-btn:hover {
+    background: #e5e7eb;
 }
 
 /* Environment Image */
