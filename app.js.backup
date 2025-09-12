@@ -265,8 +265,7 @@ function connectToSSE() {
         headers: {
             'Authorization': `Bearer ${authToken}`,
             'Accept': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive'
+            'Cache-Control': 'no-cache'
         },
         signal: controller.signal
     })
@@ -300,54 +299,42 @@ function connectToSSE() {
                 
                 // Decodificar dados recebidos
                 const chunk = decoder.decode(value, { stream: true });
-                console.log('📦 Chunk SSE:', chunk);
-                
-                // Tentar processar diretamente primeiro
-                if (processChunkDirectly(chunk)) {
-                    console.log('✅ Chunk processado diretamente, pulando processamento linha por linha');
-                    return processStream(); // Continuar lendo
-                }
-                
+                console.log('📦 Chunk SSE recebido:', chunk);
                 const lines = chunk.split('\n');
                 
                 for (let line of lines) {
-                    line = line.trim(); // Importante: remover espaços em branco
-                    
                     if (line.startsWith('event:')) {
                         const eventType = line.substring(6).trim();
-                        console.log('🏷️ Event type:', eventType);
                         continue;
                     }
                     
                     if (line.startsWith('data:')) {
                         const eventData = line.substring(5).trim();
-                        console.log('📋 Event data:', eventData);
                         
                         try {
                             // Processar dados baseado no tipo de evento
                             if (eventData) {
                                 const data = JSON.parse(eventData);
-                                console.log('📊 Dados parseados:', data);
                                 
                                 // Detectar tipo de evento baseado na estrutura dos dados
                                 if (data.allStates) {
                                     // Evento initial_state
-                                    console.log('🏠 Estado inicial das luminárias recebido via SSE');
+                                    console.log('� Estado inicial das luminárias recebido:', eventData);
                                     luminariaStates = data.allStates;
                                     updateLuminariaStatesUI();
                                 } else if (data.luminariaId !== undefined && data.isOn !== undefined) {
                                     // Evento state_change
-                                    console.log(`💡 MUDANÇA DE ESTADO VIA SSE: Luminária ${data.luminariaId} -> ${data.isOn ? 'ON' : 'OFF'}`);
+                                    console.log('💡 Mudança de estado recebida:', eventData);
                                     luminariaStates[data.luminariaId] = data.isOn;
                                     updateLuminariaStateUI(data.luminariaId, data.isOn);
                                     showNotification(
-                                        `💡 Luminária ${data.luminariaId} ${data.isOn ? 'ligada' : 'desligada'}`, 
+                                        `Luminária ${data.luminariaId} ${data.isOn ? 'ligada' : 'desligada'}`, 
                                         'info'
                                     );
                                 }
                             }
                         } catch (error) {
-                            console.error('❌ Erro processando dados SSE:', error, 'Data:', eventData);
+                            console.error('Erro processando dados SSE:', error);
                         }
                     }
                 }
@@ -378,44 +365,6 @@ function connectToSSE() {
             }
         }, 5000);
     });
-}
-
-// Função auxiliar para processar chunks SSE de forma mais robusta
-function processChunkDirectly(chunk) {
-    console.log('🔧 Processando chunk diretamente:', chunk);
-    
-    // Tentar processar como JSON direto primeiro
-    try {
-        if (chunk.startsWith('{') && chunk.includes('}')) {
-            const jsonStart = chunk.indexOf('{');
-            const jsonEnd = chunk.lastIndexOf('}') + 1;
-            const jsonData = chunk.substring(jsonStart, jsonEnd);
-            
-            console.log('🔧 Tentando JSON direto:', jsonData);
-            const eventData = JSON.parse(jsonData);
-            
-            if (eventData.luminariaId !== undefined && eventData.isOn !== undefined) {
-                console.log(`💡 ESTADO ENCONTRADO NO CHUNK: Luminária ${eventData.luminariaId} -> ${eventData.isOn ? 'ON' : 'OFF'}`);
-                
-                // Atualizar estado local
-                luminariaStates[eventData.luminariaId] = eventData.isOn;
-                
-                // Atualizar UI imediatamente
-                updateLuminariaStateUI(eventData.luminariaId, eventData.isOn);
-                
-                showNotification(
-                    `💡 Luminária ${eventData.luminariaId} ${eventData.isOn ? 'ligada' : 'desligada'}`, 
-                    'success'
-                );
-                
-                return true; // Processado com sucesso
-            }
-        }
-    } catch (error) {
-        console.log('🔧 Chunk não é JSON válido, continuando processamento normal');
-    }
-    
-    return false; // Não foi processado, continuar processamento normal
 }
 
 // Função para processar eventos SSE
@@ -470,140 +419,62 @@ function processSSEEvent(event) {
 
 // Atualizar UI de uma luminária específica
 function updateLuminariaStateUI(luminariaId, isOn) {
-    console.log(`🎨 === INÍCIO updateLuminariaStateUI ===`);
-    console.log(`🎨 Luminária ID: ${luminariaId}, Estado: ${isOn ? 'LIGADA' : 'DESLIGADA'}`);
+    console.log(`🎨 Atualizando UI: Luminária ${luminariaId} -> ${isOn ? 'LIGADA' : 'DESLIGADA'}`);
     
-    // Buscar o card da luminária
     const lumCard = document.querySelector(`[data-luminaria-id="${luminariaId}"]`);
     if (!lumCard) {
         console.error(`❌ Card da luminária ${luminariaId} não encontrado na UI`);
-        console.log('🔍 Cards disponíveis:', Array.from(document.querySelectorAll('[data-luminaria-id]')).map(c => c.getAttribute('data-luminaria-id')));
+        console.log('🔍 Cards disponíveis:', document.querySelectorAll('[data-luminaria-id]').length);
         return;
     }
     
     console.log(`✅ Card encontrado para luminária ${luminariaId}`);
     
-    // Atualizar status indicator
     const statusIndicator = lumCard.querySelector('.status-indicator');
+    const toggleBtn = lumCard.querySelector('.toggle-btn');
+    
     if (statusIndicator) {
-        console.log(`📊 Status anterior: ${statusIndicator.className}`);
-        
-        // Remover classes antigas e aplicar nova
-        statusIndicator.classList.remove('on', 'off');
-        statusIndicator.classList.add(isOn ? 'on' : 'off');
+        statusIndicator.className = `status-indicator ${isOn ? 'on' : 'off'}`;
         statusIndicator.innerHTML = `<i class="fas fa-lightbulb"></i> ${isOn ? 'Ligada' : 'Desligada'}`;
-        
-        console.log(`📊 Status atualizado: ${statusIndicator.className}`);
-        console.log(`📝 Conteúdo atualizado: ${statusIndicator.innerHTML}`);
+        console.log(`✅ Status indicator atualizado: ${isOn ? 'Ligada' : 'Desligada'}`);
     } else {
         console.error(`❌ Status indicator não encontrado para luminária ${luminariaId}`);
     }
     
-    // Atualizar toggle button
-    const toggleBtn = lumCard.querySelector('.toggle-btn');
     if (toggleBtn) {
-        console.log(`🔘 Button anterior: ${toggleBtn.className}`);
-        
-        // Remover classes antigas e aplicar nova
-        toggleBtn.classList.remove('btn-success', 'btn-danger');
-        toggleBtn.classList.add(isOn ? 'btn-danger' : 'btn-success');
+        toggleBtn.className = `btn toggle-btn ${isOn ? 'btn-danger' : 'btn-success'}`;
         toggleBtn.innerHTML = `<i class="fas fa-power-off"></i> ${isOn ? 'Desligar' : 'Ligar'}`;
-        
-        console.log(`🔘 Button atualizado: ${toggleBtn.className}`);
-        console.log(`📝 Button conteúdo: ${toggleBtn.innerHTML}`);
+        console.log(`✅ Toggle button atualizado: ${isOn ? 'Desligar' : 'Ligar'}`);
     } else {
         console.error(`❌ Toggle button não encontrado para luminária ${luminariaId}`);
     }
     
-    // Efeito visual para confirmação da mudança
-    lumCard.style.transition = 'all 0.3s ease';
-    lumCard.style.transform = 'scale(1.02)';
-    lumCard.style.boxShadow = isOn ? '0 0 20px rgba(16, 185, 129, 0.4)' : '0 0 20px rgba(239, 68, 68, 0.4)';
-    
+    // Forçar re-render se necessário
+    lumCard.style.opacity = '0.8';
     setTimeout(() => {
-        lumCard.style.transform = 'scale(1)';
-        lumCard.style.boxShadow = '';
-    }, 300);
-    
-    console.log(`🎨 === FIM updateLuminariaStateUI ===`);
+        lumCard.style.opacity = '1';
+    }, 100);
 }
 
 // Atualizar UI de todas as luminárias
 function updateLuminariaStatesUI() {
-    console.log('🔄 === INÍCIO updateLuminariaStatesUI ===');
-    console.log('📊 Estados das luminárias:', luminariaStates);
-    
+    console.log('🔄 Atualizando UI de todas as luminárias:', luminariaStates);
     for (const [luminariaId, isOn] of Object.entries(luminariaStates)) {
-        console.log(`🔄 Processando luminária ${luminariaId}: ${isOn}`);
         updateLuminariaStateUI(parseInt(luminariaId), isOn);
     }
-    
-    console.log('🔄 === FIM updateLuminariaStatesUI ===');
 }
-
-// Função para sincronizar estados com a UI (útil para debug)
-window.syncStatesWithUI = function() {
-    console.log('🔄 === SINCRONIZAÇÃO FORÇADA ===');
-    console.log('📊 Estados atuais:', luminariaStates);
-    console.log('💡 Luminárias disponíveis:', luminaires.map(l => l.id));
-    
-    // Verificar cada luminária renderizada
-    const cards = document.querySelectorAll('[data-luminaria-id]');
-    console.log(`🃏 Cards encontrados: ${cards.length}`);
-    
-    cards.forEach(card => {
-        const id = parseInt(card.getAttribute('data-luminaria-id'));
-        const currentState = luminariaStates[id];
-        
-        console.log(`🔍 Verificando luminária ${id}: estado = ${currentState}`);
-        
-        if (currentState !== undefined) {
-            updateLuminariaStateUI(id, currentState);
-        } else {
-            console.warn(`⚠️ Estado não encontrado para luminária ${id}`);
-        }
-    });
-    
-    console.log('✅ Sincronização concluída');
-};
 
 // Função de debug para testar no console
 window.debugLuminaria = function(id, state) {
-    console.log(`🐛 === DEBUG MANUAL ===`);
-    console.log(`🐛 Testando luminária ${id} com estado ${state}`);
-    
-    // Atualizar estado local
+    console.log(`🐛 DEBUG: Testando luminária ${id} com estado ${state}`);
     luminariaStates[id] = state;
-    console.log('📊 Estados após debug:', luminariaStates);
-    
-    // Atualizar UI
     updateLuminariaStateUI(id, state);
-    
-    console.log(`🐛 === DEBUG CONCLUÍDO ===`);
 };
 
 // Função para forçar re-render das luminárias
 window.forceRerender = function() {
-    console.log('🔄 === FORCE RERENDER ===');
     console.log('🔄 Forçando re-render das luminárias...');
     renderLuminaires();
-    console.log('✅ Re-render concluído');
-};
-
-// Função para testar toggle de uma luminária específica
-window.testToggle = function(id) {
-    console.log(`🧪 === TESTE TOGGLE LUMINÁRIA ${id} ===`);
-    
-    const currentState = luminariaStates[id] || false;
-    const newState = !currentState;
-    
-    console.log(`🧪 Estado atual: ${currentState} -> Novo estado: ${newState}`);
-    
-    // Simular toggle sem chamar API
-    luminariaStates[id] = newState;
-    updateLuminariaStateUI(id, newState);
-    
-    console.log('🧪 Toggle de teste concluído (sem chamada API)');
 };
 
 // Função de diagnóstico completo
@@ -1007,7 +878,7 @@ async function deleteLuminaire(id) {
 
 // Funções de Automação das Luminárias
 async function toggleLuminaria(id) {
-    console.log(`🔄 === TOGGLE INICIADO: Luminária ${id} ===`);
+    console.log(`🔄 TOGGLE INICIADO: Luminária ${id}`);
     console.log('📊 Estado atual das luminárias:', luminariaStates);
     
     try {
@@ -1030,17 +901,8 @@ async function toggleLuminaria(id) {
         
         console.log(`✅ Toggle confirmado via API: Luminária ${id}:`, response);
         
-        // Verificar se SSE atualizou após 2 segundos
-        setTimeout(() => {
-            const currentStateAfterAPI = luminariaStates[id];
-            console.log(`🕐 Verificação pós-API (2s): Luminária ${id} estado = ${currentStateAfterAPI}`);
-            
-            if (currentStateAfterAPI === newState) {
-                console.log(`✅ Estado mantido - SSE funcionou ou não foi necessário`);
-            } else {
-                console.log(`⚠️ Estado mudou via SSE: ${newState} -> ${currentStateAfterAPI}`);
-            }
-        }, 2000);
+        // O SSE vai confirmar o estado real do servidor
+        // Se houver diferença, o SSE irá corrigir automaticamente
         
     } catch (error) {
         console.error('❌ Erro ao alternar luminária:', error);
@@ -1053,8 +915,6 @@ async function toggleLuminaria(id) {
         
         showNotification('Erro ao controlar luminária: ' + error.message, 'error');
     }
-    
-    console.log(`🔄 === TOGGLE FINALIZADO: Luminária ${id} ===`);
 }
 
 async function turnOnLuminaria(id) {
